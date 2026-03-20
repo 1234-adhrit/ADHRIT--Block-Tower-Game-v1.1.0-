@@ -1,0 +1,3424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Block Tower</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap');
+
+    :root {
+      --bg-1: #f6e2b3;
+      --bg-2: #eec7d8;
+      --bg-3: #a9d8ff;
+      --ink: #1f1f2b;
+      --accent: #ff8a3d;
+      --accent-2: #2f7cff;
+      --glass: rgba(255, 255, 255, 0.55);
+      --glass-strong: rgba(255, 255, 255, 0.8);
+      --shadow: rgba(24, 20, 40, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Space Grotesk", "Exo 2", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 10% 10%, #fff6d8 0%, var(--bg-1) 35%, var(--bg-2) 70%, var(--bg-3) 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.55), transparent 45%),
+        radial-gradient(circle at 80% 15%, rgba(255, 255, 255, 0.4), transparent 40%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0));
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    .ui {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 16px;
+      overflow-y: auto;
+      padding: 24px 16px 40px;
+      z-index: 2;
+      pointer-events: auto;
+    }
+
+    .panel {
+      display: none;
+      pointer-events: none;
+      width: min(720px, 94vw);
+      min-width: min(520px, 94vw);
+      max-width: 720px;
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 34px 36px;
+      border-radius: 24px;
+      background: var(--glass);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 20px 50px var(--shadow);
+      backdrop-filter: blur(12px);
+      gap: 18px;
+      flex-direction: column;
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .panel.active {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .title {
+      font-family: "Exo 2", "Space Grotesk", sans-serif;
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      color: rgba(31, 31, 43, 0.7);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(31, 31, 43, 0.6);
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(31, 31, 43, 0.15);
+      font-size: 17px;
+      background: rgba(255, 255, 255, 0.8);
+      outline: none;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input:focus {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 3px rgba(47, 124, 255, 0.2);
+    }
+
+    .actions {
+      display: grid;
+      gap: 12px;
+    }
+
+    button {
+      padding: 14px 18px;
+      border: none;
+      border-radius: 14px;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+      box-shadow: 0 14px 24px rgba(0, 0, 0, 0.12);
+      background: var(--accent);
+      color: #1f1f2b;
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.85);
+      color: #1f1f2b;
+      border: 1px solid rgba(31, 31, 43, 0.1);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.14);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+    }
+
+    .hint {
+      font-size: 14px;
+      color: rgba(31, 31, 43, 0.6);
+    }
+
+    .hud {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 3;
+      pointer-events: none;
+      color: #1b1b24;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .hud.hidden {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+
+    .spectate-controls {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      z-index: 4;
+      display: none;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .spectate-controls button {
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+
+    .round-panel {
+      max-width: 420px;
+    }
+
+    @media (max-width: 640px) {
+      .panel {
+        padding: 22px;
+        border-radius: 20px;
+        width: min(560px, 94vw);
+        min-width: min(320px, 94vw);
+        max-width: 560px;
+      }
+
+      .title {
+        font-size: 30px;
+      }
+
+      button {
+        padding: 14px 16px;
+        font-size: 16px;
+      }
+
+      .row {
+        grid-template-columns: 1fr;
+      }
+
+      .spectate-controls {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        flex-wrap: wrap;
+      }
+
+      .spectate-controls button {
+        flex: 1 1 120px;
+      }
+
+      .chat-panel {
+        right: 16px;
+        left: 16px;
+        width: auto;
+        max-height: 36vh;
+      }
+    }
+
+    @media (max-height: 760px) {
+      .ui {
+        align-items: flex-start;
+        padding-top: 16px;
+        padding-bottom: 16px;
+      }
+    }
+
+    .pill {
+      background: var(--glass-strong);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 14px;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .leaderboard {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      min-width: 190px;
+      z-index: 3;
+      pointer-events: none;
+      background: var(--glass-strong);
+      border-radius: 18px;
+      padding: 12px 14px;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .leaderboard.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .chat-panel {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      width: 280px;
+      max-height: 40vh;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      background: var(--glass-strong);
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.18);
+      z-index: 4;
+      pointer-events: auto;
+    }
+
+    .chat-header {
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: rgba(31, 31, 43, 0.7);
+      font-weight: 700;
+    }
+
+    .chat-log {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      padding-right: 4px;
+      font-size: 13px;
+      color: rgba(31, 31, 43, 0.85);
+    }
+
+    .chat-line {
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .chat-line .name {
+      font-weight: 700;
+      margin-right: 6px;
+      color: rgba(31, 31, 43, 0.85);
+    }
+
+    .chat-line.self .name {
+      color: var(--accent-2);
+    }
+
+    .chat-input {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chat-input input {
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+
+    .chat-input button {
+      padding: 8px 12px;
+      font-size: 14px;
+      box-shadow: none;
+    }
+    .leaderboard h4 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .leaderboard .entry {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .leaderboard .entry:last-child {
+      margin-bottom: 0;
+    }
+
+    .lobby-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 600;
+    }
+
+    .room-code {
+      font-size: 20px;
+      letter-spacing: 3px;
+      background: rgba(31, 31, 43, 0.08);
+      padding: 6px 12px;
+      border-radius: 12px;
+    }
+
+    .player-list {
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: grid;
+      gap: 8px;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .player-list span {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .tag {
+      background: rgba(47, 124, 255, 0.15);
+      color: #1d3c7a;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .overlay-message {
+      font-size: 14px;
+      color: rgba(31, 31, 43, 0.6);
+      min-height: 18px;
+    }
+    .skins {
+      display: grid;
+      gap: 10px;
+    }
+
+    .skins-title {
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: rgba(31, 31, 43, 0.6);
+    }
+
+    .skin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .skin-card {
+      position: relative;
+      padding: 12px;
+      border-radius: 16px;
+      min-height: 84px;
+      color: #fff;
+      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      background: linear-gradient(135deg, var(--skin-1), var(--skin-2));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+
+    .skin-card .skin-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .skin-card .skin-req {
+      font-size: 11px;
+      margin-top: 6px;
+      opacity: 0.8;
+    }
+
+    .skin-card.locked {
+      filter: grayscale(0.4) saturate(0.6);
+      opacity: 0.7;
+    }
+
+    .skin-card.locked::after {
+      content: "Locked";
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .skin-card.active {
+      outline: 2px solid var(--accent-2);
+      box-shadow: 0 12px 24px rgba(47, 124, 255, 0.25);
+    }
+
+    .fade-in {
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .info-card {
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: 18px;
+      padding: 14px 16px;
+      display: grid;
+      gap: 6px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    }
+
+    .info-card .card-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(31, 31, 43, 0.6);
+    }
+
+    .info-card .card-value {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .inline-actions {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .settings {
+      background: rgba(255, 255, 255, 0.7);
+      padding: 12px 14px;
+      border-radius: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .leader-list,
+    .room-history {
+      display: grid;
+      gap: 8px;
+    }
+
+    .leader-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: 12px;
+    }
+
+    .leader-item span:last-child {
+      font-weight: 700;
+    }
+
+    .achievement-list {
+      display: grid;
+      gap: 10px;
+      max-height: 260px;
+      overflow: auto;
+      padding-right: 6px;
+    }
+
+    .achievement-item {
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.75);
+      display: grid;
+      gap: 4px;
+    }
+
+    .achievement-item.locked {
+      opacity: 0.55;
+      filter: grayscale(0.4);
+    }
+
+    .achievement-item .achievement-name {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 40px;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(31, 31, 43, 0.9);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 6;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div class="ui">
+    <div id="menu" class="panel active fade-in">
+      <div class="title">Block Tower</div>
+      <div class="subtitle">Stack perfectly, chase combos, and show your tower style. Play solo anytime or host a room with friends.</div>
+
+      <div>
+        <label for="playerName">Player name (required for online)</label>
+        <input id="playerName" type="text" maxlength="16" placeholder="Enter your name" />
+        <div class="hint" id="profileStats">Profile: --</div>
+      </div>
+
+      <div>
+        <label for="serverUrl">Server URL (online)</label>
+        <input id="serverUrl" type="text" placeholder="ws://localhost:3000" />
+        <div class="hint">If you opened http://localhost:3000 the URL is auto-filled.</div>
+      </div>
+
+      <div class="actions">
+        <button id="soloBtn">Play Solo</button>
+        <button id="createBtn">Create Server</button>
+        <div class="row">
+          <input id="joinCode" type="text" maxlength="6" placeholder="Room code" />
+          <button id="joinBtn" class="secondary">Join</button>
+        </div>
+      </div>
+
+      <div class="skins">
+        <div class="skins-title">Skins</div>
+        <div id="skinGrid" class="skin-grid"></div>
+        <div id="skinHint" class="hint">Unlock more skins by reaching higher scores.</div>
+      </div>
+
+      <div class="info-card" id="dailyCard">
+        <div class="card-title">Daily Challenge</div>
+        <div class="card-value" id="challengeTitle">Loading...</div>
+        <div class="hint" id="challengeDesc"></div>
+        <div class="hint" id="challengeProgress"></div>
+        <div class="hint" id="challengeReward"></div>
+      </div>
+
+      <div class="info-card">
+        <div class="card-title">Achievements</div>
+        <div class="card-value" id="achievementSummary">Unlocked 0/0</div>
+        <div class="hint" id="achievementPreview">Complete challenges to unlock achievements.</div>
+      </div>
+
+      <div class="inline-actions">
+        <button id="leaderboardBtn" class="secondary">Leaderboards</button>
+        <button id="achievementsBtn" class="secondary">Achievements</button>
+        <button id="watchSharedReplayBtn" class="secondary" style="display:none;">Watch Replay</button>
+      </div>
+
+      <div class="hint">You can jump into solo play without a name. Multiplayer needs a name so everyone can recognize you.</div>
+      <div id="menuError" class="overlay-message"></div>
+    </div>
+
+    <div id="lobby" class="panel fade-in">
+      <div class="lobby-info">
+        <div>Room</div>
+        <div class="room-code" id="roomCode">----</div>
+      </div>
+      <div class="player-list" id="playerList"></div>
+      <div class="settings">
+        <div class="card-title">Room Settings</div>
+        <div class="settings-grid">
+          <div>
+            <label for="settingRoundTime">Round Time (sec)</label>
+            <input id="settingRoundTime" type="number" min="30" max="180" />
+          </div>
+          <div>
+            <label for="settingWinTarget">Win Target (rounds)</label>
+            <input id="settingWinTarget" type="number" min="1" max="5" />
+          </div>
+          <div>
+            <label for="settingMaxPlayers">Max Players</label>
+            <input id="settingMaxPlayers" type="number" min="2" max="8" />
+          </div>
+        </div>
+        <div class="hint" id="settingsHint">Host can change settings. Changes sync to everyone.</div>
+      </div>
+      <button id="startBtn">Start Match</button>
+      <button id="leaveBtn" class="secondary">Leave Room</button>
+      <div class="overlay-message">Online multiplayer works across devices when everyone uses the same server URL.</div>
+    </div>
+
+    <div id="leaderboardPanel" class="panel fade-in">
+      <div class="title">Leaderboards</div>
+      <div class="subtitle">Global top scores and recent room history.</div>
+      <div class="info-card">
+        <div class="card-title">Global Top Scores</div>
+        <div id="globalLeaderEntries" class="leader-list"></div>
+      </div>
+      <div class="info-card">
+        <div class="card-title">Room History</div>
+        <div id="roomHistoryEntries" class="room-history"></div>
+      </div>
+      <button id="leaderboardBackBtn" class="secondary">Back</button>
+    </div>
+
+    <div id="achievementsPanel" class="panel fade-in">
+      <div class="title">Achievements</div>
+      <div class="subtitle">Show off your progress and unlock rewards.</div>
+      <div id="achievementsList" class="achievement-list"></div>
+      <button id="achievementsBackBtn" class="secondary">Back</button>
+    </div>
+
+    <div id="replayPanel" class="panel fade-in">
+      <div class="title">Replay Ready</div>
+      <div class="subtitle" id="replayInfo">Watch a recent run or a shared replay.</div>
+      <button id="replayPlayBtn">Watch Replay</button>
+      <button id="replayCloseBtn" class="secondary">Back</button>
+    </div>
+
+    <div id="roundPanel" class="panel fade-in">
+      <div class="title" id="roundTitle">Round Complete</div>
+      <div class="subtitle" id="roundWinner">Winner: --</div>
+      <div class="subtitle" id="roundCountdown">Next round in 5...</div>
+      <button id="roundLobbyBtn" class="secondary">Back To Lobby</button>
+    </div>
+
+    <div id="gameOver" class="panel fade-in">
+      <div class="title">Tower Toppled</div>
+      <div class="subtitle" id="finalScore">Score: 0</div>
+      <div class="subtitle" id="unlockNotice"></div>
+      <div class="subtitle" id="spectateHint" style="display:none;">Spectate to watch the other towers live.</div>
+      <button id="retryBtn">Play Again</button>
+      <button id="replayBtn" class="secondary" style="display:none;">Watch Replay</button>
+      <button id="copyReplayBtn" class="secondary" style="display:none;">Copy Replay Link</button>
+      <button id="spectateBtn" class="secondary" style="display:none;">Spectate</button>
+      <button id="backBtn" class="secondary">Back To Menu</button>
+    </div>
+  </div>
+
+  <div class="hud hidden" id="hud">
+    <div class="pill" id="scorePill">Score <span id="scoreVal">0</span></div>
+    <div class="pill" id="perfectPill">Perfect x<span id="perfectVal">0</span></div>
+    <div class="pill" id="roundPill" style="display:none;">Round <span id="roundVal">1</span></div>
+    <div class="pill" id="timePill" style="display:none;">Time <span id="timeVal">60</span>s</div>
+    <div class="pill" id="challengePill" style="display:none;">Daily <span id="challengePillVal">0/0</span></div>
+    <div class="pill" id="spectatePill" style="display:none;">Spectating</div>
+    <div class="pill" id="roomPill" style="display:none;">Room <span id="roomPillCode"></span></div>
+  </div>
+
+  <div class="spectate-controls" id="spectateControls">
+    <button id="prevSpectateBtn" class="secondary">Prev</button>
+    <button id="nextSpectateBtn" class="secondary">Next</button>
+    <button id="exitSpectateBtn" class="secondary">Back To Menu</button>
+  </div>
+
+  <div class="spectate-controls" id="replayControls" style="display:none;">
+    <button id="replayPauseBtn" class="secondary">Pause</button>
+    <button id="replayExitBtn" class="secondary">Back To Menu</button>
+  </div>
+
+  <div class="leaderboard" id="leaderboard">
+    <h4>Room Scores</h4>
+    <div id="leaderEntries"></div>
+  </div>
+
+  <div id="chatPanel" class="chat-panel">
+    <div class="chat-header">Room Chat</div>
+    <div id="chatLog" class="chat-log"></div>
+    <div class="chat-input">
+      <input id="chatInput" type="text" maxlength="140" placeholder="Type a message..." />
+      <button id="chatSend" class="secondary">Send</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Achievement Unlocked</div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const menuPanel = document.getElementById('menu');
+    const lobbyPanel = document.getElementById('lobby');
+    const gameOverPanel = document.getElementById('gameOver');
+
+    const playerNameInput = document.getElementById('playerName');
+    const serverUrlInput = document.getElementById('serverUrl');
+    const joinCodeInput = document.getElementById('joinCode');
+    const soloBtn = document.getElementById('soloBtn');
+    const createBtn = document.getElementById('createBtn');
+    const joinBtn = document.getElementById('joinBtn');
+    const startBtn = document.getElementById('startBtn');
+    const leaveBtn = document.getElementById('leaveBtn');
+    const retryBtn = document.getElementById('retryBtn');
+    const replayBtn = document.getElementById('replayBtn');
+    const copyReplayBtn = document.getElementById('copyReplayBtn');
+    const spectateBtn = document.getElementById('spectateBtn');
+    const backBtn = document.getElementById('backBtn');
+    const leaderboardBtn = document.getElementById('leaderboardBtn');
+    const achievementsBtn = document.getElementById('achievementsBtn');
+    const watchSharedReplayBtn = document.getElementById('watchSharedReplayBtn');
+
+    const scoreVal = document.getElementById('scoreVal');
+    const perfectVal = document.getElementById('perfectVal');
+    const scorePill = document.getElementById('scorePill');
+    const perfectPill = document.getElementById('perfectPill');
+    const roundPill = document.getElementById('roundPill');
+    const roundVal = document.getElementById('roundVal');
+    const timePill = document.getElementById('timePill');
+    const timeVal = document.getElementById('timeVal');
+    const challengePill = document.getElementById('challengePill');
+    const challengePillVal = document.getElementById('challengePillVal');
+    const spectatePill = document.getElementById('spectatePill');
+    const spectateControls = document.getElementById('spectateControls');
+    const prevSpectateBtn = document.getElementById('prevSpectateBtn');
+    const nextSpectateBtn = document.getElementById('nextSpectateBtn');
+    const exitSpectateBtn = document.getElementById('exitSpectateBtn');
+    const replayControls = document.getElementById('replayControls');
+    const replayPauseBtn = document.getElementById('replayPauseBtn');
+    const replayExitBtn = document.getElementById('replayExitBtn');
+    const finalScore = document.getElementById('finalScore');
+    const unlockNotice = document.getElementById('unlockNotice');
+    const spectateHint = document.getElementById('spectateHint');
+    const menuError = document.getElementById('menuError');
+    const profileStats = document.getElementById('profileStats');
+    const challengeTitle = document.getElementById('challengeTitle');
+    const challengeDesc = document.getElementById('challengeDesc');
+    const challengeProgress = document.getElementById('challengeProgress');
+    const challengeReward = document.getElementById('challengeReward');
+    const achievementSummary = document.getElementById('achievementSummary');
+    const achievementPreview = document.getElementById('achievementPreview');
+    const toast = document.getElementById('toast');
+
+    const roomCodeEl = document.getElementById('roomCode');
+    const playerListEl = document.getElementById('playerList');
+    const settingRoundTime = document.getElementById('settingRoundTime');
+    const settingWinTarget = document.getElementById('settingWinTarget');
+    const settingMaxPlayers = document.getElementById('settingMaxPlayers');
+    const settingsHint = document.getElementById('settingsHint');
+    const roomPill = document.getElementById('roomPill');
+    const roomPillCode = document.getElementById('roomPillCode');
+    const leaderboard = document.getElementById('leaderboard');
+    const leaderEntries = document.getElementById('leaderEntries');
+    const chatPanel = document.getElementById('chatPanel');
+    const chatLog = document.getElementById('chatLog');
+    const chatInput = document.getElementById('chatInput');
+    const chatSend = document.getElementById('chatSend');
+    const skinGrid = document.getElementById('skinGrid');
+    const skinHint = document.getElementById('skinHint');
+    const hud = document.getElementById('hud');
+    const roundPanel = document.getElementById('roundPanel');
+    const roundTitle = document.getElementById('roundTitle');
+    const roundWinner = document.getElementById('roundWinner');
+    const roundCountdown = document.getElementById('roundCountdown');
+    const roundLobbyBtn = document.getElementById('roundLobbyBtn');
+    const leaderboardPanel = document.getElementById('leaderboardPanel');
+    const globalLeaderEntries = document.getElementById('globalLeaderEntries');
+    const roomHistoryEntries = document.getElementById('roomHistoryEntries');
+    const leaderboardBackBtn = document.getElementById('leaderboardBackBtn');
+    const achievementsPanel = document.getElementById('achievementsPanel');
+    const achievementsList = document.getElementById('achievementsList');
+    const achievementsBackBtn = document.getElementById('achievementsBackBtn');
+    const replayPanel = document.getElementById('replayPanel');
+    const replayInfo = document.getElementById('replayInfo');
+    const replayPlayBtn = document.getElementById('replayPlayBtn');
+    const replayCloseBtn = document.getElementById('replayCloseBtn');
+
+    function generatePlayerId() {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+      }
+      return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    const state = {
+      mode: 'menu',
+      playMode: 'solo',
+      roomCode: null,
+      isHost: false,
+      hostId: null,
+      playerId: generatePlayerId(),
+      playerName: 'Solo',
+      players: {},
+      connected: false,
+      socket: null,
+      socketUrl: '',
+      disconnecting: false,
+      joinTimeout: null,
+      roomSettings: {
+        roundDuration: 60,
+        winTarget: 2,
+        maxPlayers: 6
+      },
+      roundNumber: 1,
+      roundWins: {},
+      roundActive: false,
+      roundEndAt: 0,
+      roundDuration: 60,
+      roundFinished: false,
+      roundLosses: {},
+      daily: {
+        dateKey: '',
+        challenge: null,
+        progress: 0,
+        completed: false
+      }
+    };
+
+    const remoteTowers = {};
+
+    const world = {
+      baseSize: 12,
+      blockHeight: 1.8,
+      maxMove: 16,
+      baseSpeed: 7,
+      speedStep: 0.4,
+      speedBoost: 1.015,
+      perfectThreshold: 0.35,
+      gravity: 28
+    };
+
+    const skins = [
+      {
+        id: 'classic',
+        name: 'Classic Pop',
+        required: 0,
+        palette: [
+          [104, 192, 255],
+          [146, 131, 255],
+          [255, 152, 203],
+          [255, 187, 122],
+          [255, 226, 153]
+        ],
+        sky: ['#a9d8ff', '#f6e2b3', '#e7b4d2'],
+        sun: 'rgba(255,255,255,0.75)',
+        gridBright: 'rgba(255,255,255,0.35)',
+        gridDim: 'rgba(255,255,255,0.22)'
+      },
+      {
+        id: 'noir',
+        name: 'Noir Steel',
+        required: 20,
+        palette: [
+          [64, 76, 110],
+          [84, 94, 130],
+          [110, 120, 160],
+          [150, 160, 190],
+          [190, 200, 220]
+        ],
+        sky: ['#1b2438', '#313b52', '#4a5575'],
+        sun: 'rgba(180,200,255,0.7)',
+        gridBright: 'rgba(195,205,255,0.25)',
+        gridDim: 'rgba(120,140,200,0.18)'
+      },
+      {
+        id: 'neon',
+        name: 'Neon Arcade',
+        required: 40,
+        palette: [
+          [60, 255, 220],
+          [90, 190, 255],
+          [200, 120, 255],
+          [255, 120, 190],
+          [255, 210, 120]
+        ],
+        sky: ['#0b0f2e', '#1b1542', '#3f1f5f'],
+        sun: 'rgba(126,246,255,0.7)',
+        gridBright: 'rgba(126,246,255,0.22)',
+        gridDim: 'rgba(160,120,255,0.2)'
+      },
+      {
+        id: 'aurora',
+        name: 'Aurora Peak',
+        required: 70,
+        palette: [
+          [120, 255, 180],
+          [140, 200, 255],
+          [120, 140, 255],
+          [200, 120, 255],
+          [255, 160, 210]
+        ],
+        sky: ['#0a1b2b', '#143a52', '#2b6b6d'],
+        sun: 'rgba(178,255,240,0.65)',
+        gridBright: 'rgba(178,255,240,0.22)',
+        gridDim: 'rgba(120,210,220,0.18)'
+      },
+      {
+        id: 'sunrise',
+        name: 'Sunrise Drift',
+        required: 'daily',
+        palette: [
+          [255, 200, 120],
+          [255, 160, 140],
+          [255, 120, 170],
+          [180, 140, 255],
+          [120, 180, 255]
+        ],
+        sky: ['#ffddb3', '#ff9db2', '#a6b7ff'],
+        sun: 'rgba(255,230,200,0.7)',
+        gridBright: 'rgba(255,255,255,0.3)',
+        gridDim: 'rgba(255,255,255,0.18)'
+      }
+    ];
+
+    const unlockKey = 'blocktower_unlocked';
+    const skinKey = 'blocktower_skin';
+    const dailyKey = 'blocktower_daily';
+    const replayKey = 'blocktower_replay';
+    const achievementKey = 'blocktower_achievements';
+
+    let palette = skins[0].palette;
+    let activeSkin = skins[0];
+    let unlockedSkins = new Set();
+    let selectedSkinId = 'classic';
+
+    let stack = [];
+    let currentBlock = null;
+    let fallingBlocks = [];
+    let score = 0;
+    let perfect = 0;
+    let lastTime = 0;
+    let cameraY = 0;
+    let isoScale = 20;
+    let heightScale = 20;
+    let centerX = 0;
+    let centerY = 0;
+
+    let audioCtx = null;
+    let roundCountdownTimer = null;
+    let spectateIndex = 0;
+    let spectateTargetId = null;
+    let profileLoadTimer = null;
+    let totalPerfects = 0;
+    let maxPerfectStreak = 0;
+    let replayRecording = null;
+    let replayStartAt = 0;
+    let replayData = null;
+    let replayState = null;
+    let replayPaused = false;
+    let sharedReplayData = null;
+    let dailyStore = null;
+    let unlockedAchievements = new Set();
+    let settingsUpdateTimer = null;
+    let lastChatSentAt = 0;
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+    }
+
+    function playTone(freq, duration, type, gain) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const amp = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      amp.gain.value = gain;
+      osc.connect(amp);
+      amp.connect(audioCtx.destination);
+      osc.start();
+      amp.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function haptic(pattern) {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    }
+
+    function soundPlace() {
+      playTone(420, 0.08, 'triangle', 0.06);
+      haptic(10);
+    }
+
+    function soundPerfect() {
+      playTone(640, 0.12, 'sine', 0.08);
+      haptic([12, 20, 12]);
+    }
+
+    function soundFail() {
+      playTone(180, 0.18, 'sawtooth', 0.08);
+      haptic([20, 40, 20]);
+    }
+
+    function soundUi() {
+      playTone(520, 0.05, 'triangle', 0.05);
+    }
+
+    const noisePattern = (() => {
+      const n = document.createElement('canvas');
+      n.width = 80;
+      n.height = 80;
+      const nctx = n.getContext('2d');
+      nctx.fillStyle = 'rgba(255,255,255,0)';
+      nctx.fillRect(0, 0, n.width, n.height);
+      for (let i = 0; i < 500; i++) {
+        const x = Math.random() * n.width;
+        const y = Math.random() * n.height;
+        const a = Math.random() * 0.18;
+        nctx.fillStyle = `rgba(255,255,255,${a})`;
+        nctx.fillRect(x, y, 1, 1);
+      }
+      for (let i = 0; i < 280; i++) {
+        const x = Math.random() * n.width;
+        const y = Math.random() * n.height;
+        const a = Math.random() * 0.12;
+        nctx.fillStyle = `rgba(0,0,0,${a})`;
+        nctx.fillRect(x, y, 1, 1);
+      }
+      return nctx.createPattern(n, 'repeat');
+    })();
+
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    let toastTimer = null;
+    function showToast(message) {
+      if (!message) return;
+      toast.textContent = message;
+      toast.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    function sanitizeChatText(text) {
+      return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 140);
+    }
+
+    function addChatMessage(msg) {
+      if (!msg || !chatLog) return;
+      const text = sanitizeChatText(msg.text);
+      if (!text) return;
+      const line = document.createElement('div');
+      line.className = 'chat-line';
+      if (msg.id && msg.id === state.playerId) {
+        line.classList.add('self');
+      }
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = msg.name || 'Player';
+      const body = document.createElement('span');
+      body.textContent = text;
+      line.appendChild(name);
+      line.appendChild(body);
+      chatLog.appendChild(line);
+      while (chatLog.children.length > 80) {
+        chatLog.removeChild(chatLog.firstChild);
+      }
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function clearChat() {
+      if (chatLog) chatLog.innerHTML = '';
+      if (chatInput) chatInput.value = '';
+    }
+
+    function updateChatVisibility() {
+      if (!chatPanel) return;
+      const show = state.playMode === 'multiplayer'
+        && state.connected
+        && state.mode !== 'menu'
+        && state.mode !== 'replay';
+      chatPanel.style.display = show ? 'flex' : 'none';
+    }
+
+    function sendChat() {
+      if (state.playMode !== 'multiplayer' || !state.connected) return;
+      const text = sanitizeChatText(chatInput.value);
+      if (!text) return;
+      const now = Date.now();
+      if (now - lastChatSentAt < 300) return;
+      lastChatSentAt = now;
+      chatInput.value = '';
+      sendToServer({
+        type: 'chat',
+        id: state.playerId,
+        code: state.roomCode,
+        text
+      });
+    }
+
+    function getLocalDateKey() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function seededRandom(seed) {
+      let hash = 2166136261;
+      for (let i = 0; i < seed.length; i += 1) {
+        hash ^= seed.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return () => {
+        hash += 0x6d2b79f5;
+        let t = Math.imul(hash ^ (hash >>> 15), 1 | hash);
+        t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function buildDailyChallenge(dateKey) {
+      const rand = seededRandom(dateKey);
+      const types = [
+        {
+          id: 'score',
+          title: 'Skyline Sprint',
+          description: (target) => `Reach score ${target} in one run.`,
+          targetRange: [14, 28]
+        },
+        {
+          id: 'perfects',
+          title: 'Crystal Focus',
+          description: (target) => `Land ${target} perfect blocks today.`,
+          targetRange: [6, 14]
+        },
+        {
+          id: 'streak',
+          title: 'Zero Drift',
+          description: (target) => `Achieve a perfect streak of ${target}.`,
+          targetRange: [3, 8]
+        }
+      ];
+      const pick = types[Math.floor(rand() * types.length)];
+      const [min, max] = pick.targetRange;
+      const target = Math.round(min + (max - min) * rand());
+      return {
+        id: pick.id,
+        title: pick.title,
+        description: pick.description(target),
+        target
+      };
+    }
+
+    function loadDailyState() {
+      const dateKey = getLocalDateKey();
+      let stored = null;
+      try {
+        stored = JSON.parse(localStorage.getItem(dailyKey) || 'null');
+      } catch {
+        stored = null;
+      }
+      if (!stored || stored.dateKey !== dateKey) {
+        stored = {
+          dateKey,
+          bestScore: 0,
+          bestStreak: 0,
+          totalPerfects: 0,
+          completed: false
+        };
+      }
+      dailyStore = stored;
+      state.daily.dateKey = dateKey;
+      state.daily.challenge = buildDailyChallenge(dateKey);
+      state.daily.completed = !!stored.completed;
+      updateDailyProgress();
+    }
+
+    function saveDailyState() {
+      if (!dailyStore) return;
+      localStorage.setItem(dailyKey, JSON.stringify(dailyStore));
+    }
+
+    function applyDailyUnlock() {
+      if (!state.daily.completed) return;
+      if (!unlockedSkins.has('sunrise')) {
+        unlockedSkins.add('sunrise');
+        saveSkins();
+        renderSkins();
+      }
+    }
+
+    function updateDailyUi() {
+      if (!state.daily.challenge) return;
+      challengeTitle.textContent = state.daily.challenge.title;
+      challengeDesc.textContent = state.daily.challenge.description;
+      challengeProgress.textContent = `Progress: ${Math.min(state.daily.progress, state.daily.challenge.target)} / ${state.daily.challenge.target}`;
+      challengeReward.textContent = state.daily.completed ? 'Reward unlocked: Sunrise Drift skin.' : 'Reward: Unlock Sunrise Drift skin.';
+      if (state.playMode === 'solo') {
+        challengePill.style.display = 'inline-flex';
+        challengePillVal.textContent = `${Math.min(state.daily.progress, state.daily.challenge.target)}/${state.daily.challenge.target}`;
+      } else {
+        challengePill.style.display = 'none';
+      }
+    }
+
+    function updateDailyProgress() {
+      if (!state.daily.challenge || !dailyStore) return;
+      const challenge = state.daily.challenge;
+      let progress = 0;
+      if (challenge.id === 'score') progress = dailyStore.bestScore || 0;
+      if (challenge.id === 'perfects') progress = dailyStore.totalPerfects || 0;
+      if (challenge.id === 'streak') progress = dailyStore.bestStreak || 0;
+      state.daily.progress = progress;
+      if (progress >= challenge.target && !state.daily.completed) {
+        completeDailyChallenge();
+      }
+      updateDailyUi();
+    }
+
+    function updateDailyMetrics(wasPerfect) {
+      if (!dailyStore) return;
+      if (state.playMode !== 'solo') return;
+      if (score > (dailyStore.bestScore || 0)) dailyStore.bestScore = score;
+      if (maxPerfectStreak > (dailyStore.bestStreak || 0)) dailyStore.bestStreak = maxPerfectStreak;
+      if (wasPerfect) dailyStore.totalPerfects = (dailyStore.totalPerfects || 0) + 1;
+      saveDailyState();
+      updateDailyProgress();
+    }
+
+    function completeDailyChallenge() {
+      state.daily.completed = true;
+      if (dailyStore) {
+        dailyStore.completed = true;
+        saveDailyState();
+      }
+      applyDailyUnlock();
+      showToast('Daily challenge complete!');
+      unlockAchievement('daily_complete');
+    }
+
+    const achievements = [
+      { id: 'first_stack', name: 'First Stack', desc: 'Place your first block.', check: () => score >= 1 },
+      { id: 'score_20', name: 'Tower Builder', desc: 'Reach score 20.', check: () => score >= 20 },
+      { id: 'score_50', name: 'Skyline Legend', desc: 'Reach score 50.', check: () => score >= 50 },
+      { id: 'perfect_5', name: 'Perfect Five', desc: 'Get a perfect streak of 5.', check: () => maxPerfectStreak >= 5 },
+      { id: 'daily_complete', name: 'Daily Hero', desc: 'Complete a daily challenge.', check: () => state.daily.completed },
+      { id: 'spectator', name: 'Spectator', desc: 'Watch another player live.', check: () => state.mode === 'spectate' },
+      { id: 'match_win', name: 'Champion', desc: 'Win a multiplayer match.', check: () => false },
+      { id: 'replay_watch', name: 'Time Traveler', desc: 'Watch a replay.', check: () => false }
+    ];
+
+    function loadAchievements() {
+      let stored = [];
+      try {
+        stored = JSON.parse(localStorage.getItem(achievementKey) || '[]');
+      } catch {
+        stored = [];
+      }
+      unlockedAchievements = new Set(stored);
+      renderAchievementSummary();
+      renderAchievementPanel();
+    }
+
+    function saveAchievements() {
+      localStorage.setItem(achievementKey, JSON.stringify(Array.from(unlockedAchievements)));
+    }
+
+    function unlockAchievement(id) {
+      if (!id || unlockedAchievements.has(id)) return;
+      unlockedAchievements.add(id);
+      saveAchievements();
+      const achievement = achievements.find((item) => item.id === id);
+      showToast(`Achievement unlocked: ${achievement ? achievement.name : id}`);
+      renderAchievementSummary();
+      renderAchievementPanel();
+    }
+
+    function renderAchievementSummary() {
+      const total = achievements.length;
+      const unlocked = unlockedAchievements.size;
+      achievementSummary.textContent = `Unlocked ${unlocked}/${total}`;
+      const preview = achievements
+        .filter((item) => unlockedAchievements.has(item.id))
+        .slice(0, 2)
+        .map((item) => item.name)
+        .join(', ');
+      achievementPreview.textContent = preview || 'Complete challenges to unlock achievements.';
+    }
+
+    function renderAchievementPanel() {
+      achievementsList.innerHTML = '';
+      achievements.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'achievement-item';
+        if (!unlockedAchievements.has(item.id)) row.classList.add('locked');
+        const name = document.createElement('div');
+        name.className = 'achievement-name';
+        name.textContent = item.name;
+        const desc = document.createElement('div');
+        desc.className = 'hint';
+        desc.textContent = item.desc;
+        row.appendChild(name);
+        row.appendChild(desc);
+        achievementsList.appendChild(row);
+      });
+    }
+
+    function checkAchievements() {
+      achievements.forEach((item) => {
+        if (item.check && item.check()) {
+          unlockAchievement(item.id);
+        }
+      });
+    }
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      isoScale = Math.min(window.innerWidth, window.innerHeight) / 26;
+      heightScale = isoScale * 1.35;
+      centerX = window.innerWidth / 2;
+      centerY = window.innerHeight * 0.74;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    function project(x, y, z) {
+      const isoX = (x - z) * isoScale;
+      const isoY = (x + z) * isoScale * 0.5 - (y - cameraY) * heightScale;
+      return { x: isoX + centerX, y: isoY + centerY };
+    }
+
+    function colorForLevel(level) {
+      const span = palette.length - 1;
+      const t = (level % (span * 8)) / (span * 8);
+      const scaled = t * span;
+      const idx = Math.floor(scaled);
+      const local = scaled - idx;
+      const c1 = palette[idx];
+      const c2 = palette[Math.min(idx + 1, palette.length - 1)];
+      const wobble = 0.15 * Math.sin(level * 1.4);
+      return {
+        r: Math.round(lerp(c1[0], c2[0], local) * (1 + wobble)),
+        g: Math.round(lerp(c1[1], c2[1], local) * (1 + wobble * 0.4)),
+        b: Math.round(lerp(c1[2], c2[2], local) * (1 - wobble * 0.2))
+      };
+    }
+
+    function shade(color, amt) {
+      const t = amt < 0 ? 0 : 255;
+      const p = Math.abs(amt) / 100;
+      return {
+        r: Math.round((t - color.r) * p + color.r),
+        g: Math.round((t - color.g) * p + color.g),
+        b: Math.round((t - color.b) * p + color.b)
+      };
+    }
+
+    function colorString(c) {
+      return `rgb(${c.r},${c.g},${c.b})`;
+    }
+    function drawPolygon(points, fillStyle, patternAlpha = 0.08, strokeStyle = 'rgba(0,0,0,0.12)') {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = fillStyle;
+      ctx.fill();
+
+      if (patternAlpha > 0) {
+        const xs = points.map(p => p.x);
+        const ys = points.map(p => p.y);
+        const minX = Math.min(...xs);
+        const minY = Math.min(...ys);
+        const maxX = Math.max(...xs);
+        const maxY = Math.max(...ys);
+        ctx.save();
+        ctx.clip();
+        ctx.globalAlpha = patternAlpha;
+        ctx.fillStyle = noisePattern;
+        ctx.fillRect(minX - 2, minY - 2, maxX - minX + 4, maxY - minY + 4);
+        ctx.restore();
+      }
+
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function drawBlock(block) {
+      const x0 = block.x - block.w / 2;
+      const x1 = block.x + block.w / 2;
+      const z0 = block.z - block.d / 2;
+      const z1 = block.z + block.d / 2;
+      const y0 = block.y - block.h / 2;
+      const y1 = block.y + block.h / 2;
+
+      const p1 = project(x0, y1, z0);
+      const p2 = project(x1, y1, z0);
+      const p3 = project(x1, y1, z1);
+      const p4 = project(x0, y1, z1);
+
+      const right = [
+        project(x1, y1, z0),
+        project(x1, y1, z1),
+        project(x1, y0, z1),
+        project(x1, y0, z0)
+      ];
+
+      const front = [
+        project(x0, y1, z1),
+        project(x1, y1, z1),
+        project(x1, y0, z1),
+        project(x0, y0, z1)
+      ];
+
+      const baseColor = block.color || { r: 120, g: 120, b: 120 };
+      const topColor = shade(baseColor, 20);
+      const rightColor = shade(baseColor, -8);
+      const frontColor = shade(baseColor, -18);
+
+      drawPolygon(front, colorString(frontColor), 0.12);
+      drawPolygon(right, colorString(rightColor), 0.1);
+
+      const gradient = ctx.createLinearGradient(p1.x, p1.y, p3.x, p3.y);
+      gradient.addColorStop(0, colorString(shade(topColor, 10)));
+      gradient.addColorStop(1, colorString(topColor));
+
+      drawPolygon([p1, p2, p3, p4], gradient, 0.18, 'rgba(255,255,255,0.2)');
+
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineTo(p3.x, p3.y);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function drawBlockMini(block, projectFn) {
+      const x0 = block.x - block.w / 2;
+      const x1 = block.x + block.w / 2;
+      const z0 = block.z - block.d / 2;
+      const z1 = block.z + block.d / 2;
+      const y0 = block.y - block.h / 2;
+      const y1 = block.y + block.h / 2;
+
+      const p1 = projectFn(x0, y1, z0);
+      const p2 = projectFn(x1, y1, z0);
+      const p3 = projectFn(x1, y1, z1);
+      const p4 = projectFn(x0, y1, z1);
+
+      const right = [
+        projectFn(x1, y1, z0),
+        projectFn(x1, y1, z1),
+        projectFn(x1, y0, z1),
+        projectFn(x1, y0, z0)
+      ];
+
+      const front = [
+        projectFn(x0, y1, z1),
+        projectFn(x1, y1, z1),
+        projectFn(x1, y0, z1),
+        projectFn(x0, y0, z1)
+      ];
+
+      const baseColor = block.color || { r: 120, g: 120, b: 120 };
+      const topColor = shade(baseColor, 20);
+      const rightColor = shade(baseColor, -8);
+      const frontColor = shade(baseColor, -18);
+
+      drawPolygon(front, colorString(frontColor), 0.05);
+      drawPolygon(right, colorString(rightColor), 0.05);
+
+      const gradient = ctx.createLinearGradient(p1.x, p1.y, p3.x, p3.y);
+      gradient.addColorStop(0, colorString(shade(topColor, 10)));
+      gradient.addColorStop(1, colorString(topColor));
+
+      drawPolygon([p1, p2, p3, p4], gradient, 0.08, 'rgba(255,255,255,0.25)');
+    }
+
+    function drawGround() {
+      ctx.save();
+      ctx.globalAlpha = 0.2;
+      for (let i = -40; i <= 40; i += 4) {
+        const a = project(i, 0, -40);
+        const b = project(i, 0, 40);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = activeSkin.gridBright;
+        ctx.stroke();
+
+        const c = project(-40, 0, i);
+        const d = project(40, 0, i);
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.lineTo(d.x, d.y);
+        ctx.strokeStyle = activeSkin.gridDim;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+      g.addColorStop(0, activeSkin.sky[0]);
+      g.addColorStop(0.45, activeSkin.sky[1]);
+      g.addColorStop(1, activeSkin.sky[2]);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+      const sun = ctx.createRadialGradient(
+        window.innerWidth * 0.75,
+        window.innerHeight * 0.2,
+        10,
+        window.innerWidth * 0.75,
+        window.innerHeight * 0.2,
+        window.innerWidth * 0.35
+      );
+      sun.addColorStop(0, activeSkin.sun);
+      sun.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sun;
+      ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+
+    function drawRoundedRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function renderSpectators() {
+      if (state.mode === 'replay') return;
+      if (state.playMode !== 'multiplayer') return;
+      const ids = Object.keys(remoteTowers);
+      if (!ids.length) return;
+
+      const cardWidth = 160;
+      const cardHeight = 120;
+      const gap = 12;
+      const padding = 18;
+      const startX = window.innerWidth - cardWidth - padding;
+      const startY = leaderboard.classList.contains('active') ? 160 : 18;
+      const now = performance.now();
+
+      ctx.save();
+      ctx.font = '12px \"Space Grotesk\", sans-serif';
+      ctx.textBaseline = 'top';
+
+      ids.forEach((id, index) => {
+        const tower = remoteTowers[id];
+        if (!tower) return;
+        const cardX = startX;
+        const cardY = startY + index * (cardHeight + gap);
+        const hot = tower.lastPlaceAt && now - tower.lastPlaceAt < 500;
+        const perfectHit = tower.lastPerfectAt && now - tower.lastPerfectAt < 700;
+
+        ctx.globalAlpha = 0.95;
+        drawRoundedRect(cardX, cardY, cardWidth, cardHeight, 14);
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.fill();
+        if (perfectHit) {
+          ctx.strokeStyle = 'rgba(255,140,90,0.9)';
+        } else if (hot) {
+          ctx.strokeStyle = 'rgba(47,124,255,0.8)';
+        } else {
+          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(31,31,43,0.75)';
+        ctx.fillText(tower.name, cardX + 10, cardY + 8);
+        ctx.fillStyle = 'rgba(31,31,43,0.55)';
+        ctx.fillText(`Score ${tower.score || 0}`, cardX + 10, cardY + 26);
+        if (perfectHit) {
+          ctx.fillStyle = 'rgba(255,120,80,0.9)';
+          ctx.fillText('Perfect!', cardX + 10, cardY + 44);
+        }
+
+        const miniScale = cardWidth / 16;
+        const miniHeight = miniScale * 1.2;
+        const centerMiniX = cardX + cardWidth / 2;
+        const centerMiniY = cardY + cardHeight * 0.8;
+        const blocks = tower.blocks || [];
+        const cameraMini = Math.max(0, (blocks.length - 4) * world.blockHeight);
+
+        const projectMini = (x, y, z) => {
+          const isoX = (x - z) * miniScale;
+          const isoY = (x + z) * miniScale * 0.5 - (y - cameraMini) * miniHeight;
+          return { x: isoX + centerMiniX, y: isoY + centerMiniY };
+        };
+
+        const sortedBlocks = [...blocks].sort((a, b) => (a.y + a.z + a.x) - (b.y + b.z + b.x));
+        sortedBlocks.forEach((block) => {
+          ctx.save();
+          ctx.globalAlpha = 0.9;
+          drawBlockMini(block, projectMini);
+          ctx.restore();
+        });
+      });
+
+      ctx.restore();
+    }
+
+    function getSpectateIds() {
+      return Object.keys(remoteTowers);
+    }
+
+    function getSpectateTarget() {
+      const ids = getSpectateIds();
+      if (!ids.length) return null;
+      if (spectateTargetId && remoteTowers[spectateTargetId]) return spectateTargetId;
+      spectateIndex = 0;
+      spectateTargetId = ids[0];
+      return spectateTargetId;
+    }
+
+    function updateSpectateLabel() {
+      const id = getSpectateTarget();
+      if (!id) {
+        spectatePill.textContent = 'Spectating';
+        return;
+      }
+      const name = remoteTowers[id]?.name || 'Player';
+      spectatePill.textContent = `Spectating ${name}`;
+    }
+
+    function cycleSpectate(step) {
+      const ids = getSpectateIds();
+      if (!ids.length) return;
+      spectateIndex = (spectateIndex + step + ids.length) % ids.length;
+      spectateTargetId = ids[spectateIndex];
+      updateSpectateLabel();
+    }
+    function createBaseBlock() {
+      return {
+        x: 0,
+        z: 0,
+        y: 0,
+        w: world.baseSize,
+        d: world.baseSize,
+        h: world.blockHeight,
+        color: { r: 80, g: 80, b: 95 }
+      };
+    }
+
+    function createMovingBlock(level) {
+      const prev = stack[stack.length - 1];
+      const axis = level % 2 === 0 ? 'x' : 'z';
+      const block = {
+        x: prev.x,
+        z: prev.z,
+        y: prev.y + world.blockHeight,
+        w: prev.w,
+        d: prev.d,
+        h: world.blockHeight,
+        axis,
+        dir: 1,
+        speed: world.baseSpeed + level * world.speedStep,
+        color: colorForLevel(level)
+      };
+      const offset = world.maxMove + level * 0.2;
+      if (axis === 'x') {
+        block.x = -offset;
+      } else {
+        block.z = -offset;
+      }
+      return block;
+    }
+
+    function serializeBlock(block) {
+      return {
+        x: block.x,
+        y: block.y,
+        z: block.z,
+        w: block.w,
+        d: block.d,
+        h: block.h,
+        color: block.color
+      };
+    }
+
+    function startRecording() {
+      replayRecording = [];
+      replayStartAt = performance.now();
+      replayData = null;
+    }
+
+    function recordPlacement(block, wasPerfect) {
+      if (!replayRecording || !block) return;
+      replayRecording.push({
+        t: Math.max(0, performance.now() - replayStartAt),
+        block: serializeBlock(block),
+        perfect: !!wasPerfect
+      });
+    }
+
+    function saveReplayLocal(data) {
+      if (!data) return;
+      try {
+        localStorage.setItem(replayKey, JSON.stringify(data));
+      } catch {
+        // ignore storage failures
+      }
+    }
+
+    function loadReplayLocal() {
+      try {
+        const stored = localStorage.getItem(replayKey);
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function finalizeRecording() {
+      if (!replayRecording || replayRecording.length === 0) {
+        replayData = null;
+        return;
+      }
+      replayData = {
+        events: replayRecording,
+        score,
+        skin: selectedSkinId,
+        createdAt: Date.now()
+      };
+      saveReplayLocal(replayData);
+    }
+
+    function encodeReplay(data) {
+      try {
+        const trimmed = {
+          ...data,
+          events: data.events ? data.events.slice(-160) : []
+        };
+        const json = JSON.stringify(trimmed);
+        return btoa(unescape(encodeURIComponent(json)));
+      } catch {
+        return '';
+      }
+    }
+
+    function decodeReplay(payload) {
+      try {
+        const json = decodeURIComponent(escape(atob(payload)));
+        return JSON.parse(json);
+      } catch {
+        return null;
+      }
+    }
+
+    function openReplayPanel(data, label) {
+      if (!data) return;
+      sharedReplayData = data;
+      replayInfo.textContent = label || 'Replay ready to watch.';
+      replayPanel.classList.add('active');
+      menuPanel.classList.remove('active');
+      lobbyPanel.classList.remove('active');
+      achievementsPanel.classList.remove('active');
+      leaderboardPanel.classList.remove('active');
+      gameOverPanel.classList.remove('active');
+    }
+
+    function startReplay(data) {
+      if (!data || !data.events || !data.events.length) return;
+      state.mode = 'replay';
+      state.roundActive = false;
+      replayPaused = false;
+      replayPauseBtn.textContent = 'Pause';
+      cameraY = 0;
+      currentBlock = null;
+      fallingBlocks = [];
+      replayState = {
+        events: data.events,
+        index: 0,
+        time: 0,
+        stack: [createBaseBlock()],
+        lastPerfectAt: 0
+      };
+      menuPanel.classList.remove('active');
+      lobbyPanel.classList.remove('active');
+      leaderboardPanel.classList.remove('active');
+      achievementsPanel.classList.remove('active');
+      replayPanel.classList.remove('active');
+      gameOverPanel.classList.remove('active');
+      leaderboard.classList.remove('active');
+      roomPill.style.display = 'none';
+      spectatePill.textContent = 'Replay';
+      spectatePill.style.display = 'inline-flex';
+      spectateControls.style.display = 'none';
+      replayControls.style.display = 'flex';
+      scorePill.style.display = 'none';
+      perfectPill.style.display = 'none';
+      challengePill.style.display = 'none';
+      hud.classList.remove('hidden');
+      unlockAchievement('replay_watch');
+      updateChatVisibility();
+    }
+
+    function resetGame() {
+      stack = [createBaseBlock()];
+      currentBlock = createMovingBlock(1);
+      fallingBlocks = [];
+      score = 0;
+      perfect = 0;
+      totalPerfects = 0;
+      maxPerfectStreak = 0;
+      cameraY = 0;
+      startRecording();
+      updateHud();
+    }
+
+    function updateHud() {
+      scoreVal.textContent = score;
+      perfectVal.textContent = perfect;
+      if (state.playMode === 'solo' && state.daily.challenge) {
+        challengePill.style.display = 'inline-flex';
+        challengePillVal.textContent = `${Math.min(state.daily.progress, state.daily.challenge.target)}/${state.daily.challenge.target}`;
+      } else {
+        challengePill.style.display = 'none';
+      }
+    }
+
+    function placeBlock() {
+      if (state.mode !== 'playing' || !currentBlock) return;
+      if (state.playMode === 'multiplayer' && !state.roundActive) return;
+      const prev = stack[stack.length - 1];
+      const axis = currentBlock.axis;
+      const sizeKey = axis === 'x' ? 'w' : 'd';
+      let wasPerfect = false;
+
+      const prevMin = prev[axis] - prev[sizeKey] / 2;
+      const prevMax = prev[axis] + prev[sizeKey] / 2;
+      const currMin = currentBlock[axis] - currentBlock[sizeKey] / 2;
+      const currMax = currentBlock[axis] + currentBlock[sizeKey] / 2;
+
+      const overlapMin = Math.max(prevMin, currMin);
+      const overlapMax = Math.min(prevMax, currMax);
+      const overlap = overlapMax - overlapMin;
+
+      if (overlap <= 0) {
+        const fallPiece = { ...currentBlock, vy: -2, vr: (Math.random() * 0.6 + 0.2) * (currentBlock.dir || 1) };
+        fallingBlocks.push(fallPiece);
+        currentBlock = null;
+        soundFail();
+        endGame();
+        return;
+      }
+
+      const delta = currentBlock[axis] - prev[axis];
+      if (Math.abs(delta) < world.perfectThreshold) {
+        currentBlock[axis] = prev[axis];
+        currentBlock[sizeKey] = prev[sizeKey];
+        perfect += 1;
+        wasPerfect = true;
+        totalPerfects += 1;
+        maxPerfectStreak = Math.max(maxPerfectStreak, perfect);
+        soundPerfect();
+      } else {
+        const newCenter = (overlapMin + overlapMax) / 2;
+        const overlapSize = overlap;
+        const overhangSize = currentBlock[sizeKey] - overlapSize;
+        const direction = delta > 0 ? 1 : -1;
+        const overhangCenter = newCenter + direction * (overlapSize / 2 + overhangSize / 2);
+
+        const piece = {
+          ...currentBlock,
+          [sizeKey]: overhangSize,
+          [axis]: overhangCenter,
+          vy: -2,
+          vr: direction * (Math.random() * 0.7 + 0.2)
+        };
+        fallingBlocks.push(piece);
+
+        currentBlock[sizeKey] = overlapSize;
+        currentBlock[axis] = newCenter;
+        perfect = 0;
+        soundPlace();
+      }
+
+      stack.push(currentBlock);
+      score += 1;
+      if (perfect > maxPerfectStreak) maxPerfectStreak = perfect;
+      updateHud();
+      broadcastScore();
+      recordPlacement(currentBlock, wasPerfect);
+      updateDailyMetrics(wasPerfect);
+      checkAchievements();
+      broadcastPlacement(currentBlock, wasPerfect);
+
+      currentBlock = createMovingBlock(stack.length);
+    }
+
+    function endGame() {
+      state.mode = 'gameover';
+      finalizeRecording();
+      const hasReplay = replayData && replayData.events && replayData.events.length > 0;
+      finalScore.textContent = `Score: ${score}`;
+      unlockNotice.textContent = '';
+      const unlocked = unlockSkins(score);
+      if (unlocked.length) {
+        unlockNotice.textContent = `Unlocked: ${unlocked.join(', ')}`;
+      }
+      const canSpectate = state.playMode === 'multiplayer' && Object.keys(remoteTowers).length > 0;
+      spectateBtn.style.display = canSpectate ? 'inline-flex' : 'none';
+      spectateHint.style.display = canSpectate ? 'block' : 'none';
+      replayBtn.style.display = hasReplay ? 'inline-flex' : 'none';
+      copyReplayBtn.style.display = hasReplay ? 'inline-flex' : 'none';
+      spectateControls.style.display = 'none';
+      replayControls.style.display = 'none';
+      hud.classList.add('hidden');
+      gameOverPanel.classList.add('active');
+      menuPanel.classList.remove('active');
+      lobbyPanel.classList.remove('active');
+
+      if (state.playMode === 'solo') {
+        recordSoloScore(score);
+        postFinalScore(score);
+      } else if (state.playMode === 'multiplayer') {
+        sendToServer({
+          type: 'roundLose',
+          id: state.playerId,
+          code: state.roomCode,
+          score
+        });
+        postFinalScore(score);
+      }
+      updateDailyProgress();
+      updateChatVisibility();
+    }
+    function updateRoundTimer() {
+      if (!state.roundActive) {
+        roundPill.style.display = 'none';
+        timePill.style.display = 'none';
+        return;
+      }
+      const now = Date.now();
+      const remainingMs = Math.max(0, state.roundEndAt - now);
+      const remainingSec = Math.ceil(remainingMs / 1000);
+      roundPill.style.display = 'inline-flex';
+      timePill.style.display = 'inline-flex';
+      roundVal.textContent = `${state.roundNumber}/${state.roomSettings.winTarget}`;
+      timeVal.textContent = remainingSec;
+
+      if (remainingMs <= 0 && state.isHost && !state.roundFinished) {
+        finishRound();
+      }
+    }
+
+    function update(dt) {
+      if (state.roundActive) {
+        updateRoundTimer();
+      }
+      if (state.mode === 'replay') {
+        updateReplay(dt);
+        return;
+      }
+      if (state.mode === 'spectate') {
+        const targetId = getSpectateTarget();
+        if (targetId && remoteTowers[targetId]) {
+          const blocks = remoteTowers[targetId].blocks || [];
+          const cameraLead = 5.5;
+          const targetY = Math.max(0, (blocks.length - cameraLead) * world.blockHeight);
+          cameraY += (targetY - cameraY) * 0.06;
+        }
+        return;
+      }
+      if (state.mode !== 'playing') return;
+      if (currentBlock) {
+        const axis = currentBlock.axis;
+        currentBlock[axis] += currentBlock.dir * currentBlock.speed * dt;
+        const limit = world.maxMove + (currentBlock[axis === 'x' ? 'w' : 'd'] || 0) * 0.5;
+        if (currentBlock[axis] > limit) {
+          currentBlock[axis] = limit;
+          currentBlock.dir = -1;
+        }
+        if (currentBlock[axis] < -limit) {
+          currentBlock[axis] = -limit;
+          currentBlock.dir = 1;
+        }
+      }
+
+      for (const piece of fallingBlocks) {
+        piece.vy -= world.gravity * dt;
+        piece.y += piece.vy * dt;
+      }
+      fallingBlocks = fallingBlocks.filter(piece => piece.y > -20);
+
+      const cameraLead = 5.5;
+      const targetY = Math.max(0, (stack.length - cameraLead) * world.blockHeight);
+      cameraY += (targetY - cameraY) * 0.06;
+    }
+
+    function updateReplay(dt) {
+      if (!replayState) return;
+      if (!replayPaused) {
+        replayState.time += dt * 1000;
+        while (replayState.index < replayState.events.length && replayState.events[replayState.index].t <= replayState.time) {
+          const event = replayState.events[replayState.index];
+          if (event && event.block) {
+            replayState.stack.push(event.block);
+            if (event.perfect) {
+              replayState.lastPerfectAt = performance.now();
+            }
+          }
+          replayState.index += 1;
+        }
+        if (replayState.index >= replayState.events.length) {
+          replayPaused = true;
+          replayPauseBtn.textContent = 'Play';
+        }
+      }
+      const cameraLead = 5.5;
+      const targetY = Math.max(0, (replayState.stack.length - cameraLead) * world.blockHeight);
+      cameraY += (targetY - cameraY) * 0.06;
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      drawBackground();
+      drawGround();
+
+      let blocks = [];
+      if (state.mode === 'replay') {
+        blocks = replayState ? [...replayState.stack] : [];
+      } else if (state.mode === 'spectate') {
+        const targetId = getSpectateTarget();
+        if (targetId && remoteTowers[targetId]) {
+          blocks = [...(remoteTowers[targetId].blocks || [])];
+        }
+      } else {
+        blocks = [...stack];
+        if (currentBlock) blocks.push(currentBlock);
+        blocks.push(...fallingBlocks);
+      }
+
+      blocks.sort((a, b) => (a.y + a.z + a.x) - (b.y + b.z + b.x));
+
+      for (const block of blocks) {
+        const fog = clamp((block.y - cameraY) / 30, 0, 0.35);
+        ctx.save();
+        ctx.globalAlpha = 1 - fog * 0.5;
+        drawBlock(block);
+        ctx.restore();
+      }
+
+      renderSpectators();
+      const now = performance.now();
+      if (state.mode === 'spectate') {
+        const targetId = getSpectateTarget();
+        const tower = targetId ? remoteTowers[targetId] : null;
+        if (tower && tower.lastPerfectAt && now - tower.lastPerfectAt < 700) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(255,120,80,0.9)';
+          ctx.font = '700 36px "Exo 2", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('PERFECT!', window.innerWidth / 2, window.innerHeight * 0.18);
+          ctx.restore();
+        }
+      }
+      if (state.mode === 'replay' && replayState && replayState.lastPerfectAt && now - replayState.lastPerfectAt < 700) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,120,80,0.9)';
+        ctx.font = '700 36px "Exo 2", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('PERFECT!', window.innerWidth / 2, window.innerHeight * 0.18);
+        ctx.restore();
+      }
+    }
+
+    function loop(timestamp) {
+      const dt = Math.min(0.033, (timestamp - lastTime) / 1000 || 0);
+      lastTime = timestamp;
+      update(dt);
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+    function showMenu() {
+      state.mode = 'menu';
+      replayPaused = false;
+      replayState = null;
+      menuPanel.classList.add('active');
+      lobbyPanel.classList.remove('active');
+      gameOverPanel.classList.remove('active');
+      leaderboardPanel.classList.remove('active');
+      achievementsPanel.classList.remove('active');
+      replayPanel.classList.remove('active');
+      leaderboard.classList.remove('active');
+      roomPill.style.display = 'none';
+      spectateBtn.style.display = 'none';
+      spectateHint.style.display = 'none';
+      spectatePill.style.display = 'none';
+      roundPanel.classList.remove('active');
+      roundPill.style.display = 'none';
+      timePill.style.display = 'none';
+      state.roundActive = false;
+      spectateControls.style.display = 'none';
+      replayControls.style.display = 'none';
+      scorePill.style.display = 'inline-flex';
+      perfectPill.style.display = 'inline-flex';
+      hud.classList.add('hidden');
+      menuError.textContent = '';
+      updateDailyUi();
+      watchSharedReplayBtn.style.display = sharedReplayData ? 'inline-flex' : 'none';
+      updateChatVisibility();
+    }
+
+    function showLobby() {
+      state.mode = 'lobby';
+      replayPaused = false;
+      replayState = null;
+      menuPanel.classList.remove('active');
+      gameOverPanel.classList.remove('active');
+      lobbyPanel.classList.add('active');
+      leaderboardPanel.classList.remove('active');
+      achievementsPanel.classList.remove('active');
+      replayPanel.classList.remove('active');
+      leaderboard.classList.remove('active');
+      spectateBtn.style.display = 'none';
+      spectateHint.style.display = 'none';
+      spectatePill.style.display = 'none';
+      roundPanel.classList.remove('active');
+      roundPill.style.display = 'none';
+      timePill.style.display = 'none';
+      state.roundActive = false;
+      spectateControls.style.display = 'none';
+      replayControls.style.display = 'none';
+      scorePill.style.display = 'inline-flex';
+      perfectPill.style.display = 'inline-flex';
+      hud.classList.add('hidden');
+      updateChatVisibility();
+    }
+
+    function showLeaderboardPanel() {
+      state.mode = 'menu';
+      leaderboardPanel.classList.add('active');
+      menuPanel.classList.remove('active');
+      lobbyPanel.classList.remove('active');
+      achievementsPanel.classList.remove('active');
+      replayPanel.classList.remove('active');
+      gameOverPanel.classList.remove('active');
+      fetchLeaderboard();
+      fetchRoomHistory(state.roomCode);
+      updateChatVisibility();
+    }
+
+    function showAchievementsPanel() {
+      state.mode = 'menu';
+      achievementsPanel.classList.add('active');
+      menuPanel.classList.remove('active');
+      leaderboardPanel.classList.remove('active');
+      replayPanel.classList.remove('active');
+      lobbyPanel.classList.remove('active');
+      gameOverPanel.classList.remove('active');
+      renderAchievementPanel();
+      updateChatVisibility();
+    }
+
+    function enterSpectate() {
+      state.mode = 'spectate';
+      gameOverPanel.classList.remove('active');
+      spectateBtn.style.display = 'none';
+      spectateHint.style.display = 'none';
+      spectatePill.style.display = 'inline-flex';
+      spectateControls.style.display = 'flex';
+      replayControls.style.display = 'none';
+      updateSpectateLabel();
+      scorePill.style.display = 'none';
+      perfectPill.style.display = 'none';
+      challengePill.style.display = 'none';
+      hud.classList.remove('hidden');
+      unlockAchievement('spectator');
+      updateChatVisibility();
+    }
+
+    function hideRoundPanel() {
+      roundPanel.classList.remove('active');
+      if (roundCountdownTimer) {
+        clearInterval(roundCountdownTimer);
+        roundCountdownTimer = null;
+      }
+    }
+
+    function showRoundPanel(title, winnerText, nextStartAt, matchOver) {
+      roundTitle.textContent = title;
+      roundWinner.textContent = winnerText;
+      if (roundCountdownTimer) clearInterval(roundCountdownTimer);
+
+      if (!nextStartAt) {
+        roundCountdown.textContent = matchOver ? 'Match over.' : '';
+      } else {
+        roundCountdownTimer = setInterval(() => {
+          const remaining = Math.max(0, Math.ceil((nextStartAt - Date.now()) / 1000));
+          roundCountdown.textContent = matchOver
+            ? `New match in ${remaining}...`
+            : `Next round in ${remaining}...`;
+        }, 250);
+      }
+
+      roundPanel.classList.add('active');
+    }
+
+    function resetMatchState() {
+      state.roundNumber = 1;
+      state.roundWins = {};
+      state.roundActive = false;
+      state.roundFinished = false;
+      state.roundLosses = {};
+      state.roundDuration = state.roomSettings.roundDuration;
+      roundPill.style.display = 'none';
+      timePill.style.display = 'none';
+    }
+
+    function handleRoundStart(msg) {
+      if (msg.resetWins) {
+        resetMatchState();
+      }
+      state.roundNumber = msg.round || state.roundNumber;
+      state.roundDuration = msg.duration || state.roomSettings.roundDuration;
+      state.roomSettings.roundDuration = state.roundDuration;
+      state.roundEndAt = (msg.startAt || Date.now()) + state.roundDuration * 1000;
+      state.roundActive = true;
+      state.roundFinished = false;
+      state.roundLosses = {};
+      Object.values(state.players).forEach((player) => {
+        player.score = 0;
+      });
+      updateLeaderboard();
+      hideRoundPanel();
+      startGame();
+    }
+
+    function computeRoundWinners() {
+      let best = -1;
+      const winners = [];
+      Object.values(state.players).forEach((player) => {
+        const scoreVal = player.score || 0;
+        if (scoreVal > best) {
+          best = scoreVal;
+          winners.length = 0;
+          winners.push(player.id);
+        } else if (scoreVal === best) {
+          winners.push(player.id);
+        }
+      });
+      return winners;
+    }
+
+    function finishRound() {
+      state.roundFinished = true;
+      state.roundActive = false;
+      const winnerIds = computeRoundWinners();
+      winnerIds.forEach((id) => {
+        state.roundWins[id] = (state.roundWins[id] || 0) + 1;
+      });
+
+      const matchOver = Object.values(state.roundWins).some((wins) => wins >= state.roomSettings.winTarget);
+      const nextStartAt = Date.now() + 5000;
+      const payload = {
+        type: 'roundEnd',
+        id: state.playerId,
+        code: state.roomCode,
+        round: state.roundNumber,
+        winnerIds,
+        wins: state.roundWins,
+        matchOver,
+        nextStartAt,
+        nextRound: matchOver ? 1 : state.roundNumber + 1,
+        resetWins: matchOver
+      };
+      sendToServer(payload);
+      handleRoundEnd(payload);
+
+      if (state.isHost) {
+        setTimeout(() => {
+          const startPayload = {
+            type: 'roundStart',
+            id: state.playerId,
+            code: state.roomCode,
+            round: matchOver ? 1 : state.roundNumber + 1,
+            duration: state.roomSettings.roundDuration,
+            startAt: Date.now() + 1000,
+            resetWins: matchOver
+          };
+          sendToServer(startPayload);
+          handleRoundStart(startPayload);
+        }, 5200);
+      }
+    }
+
+    function handleRoundEnd(msg) {
+      state.roundActive = false;
+      state.roundFinished = true;
+      currentBlock = null;
+      state.roundWins = msg.wins || state.roundWins;
+      updateLeaderboard();
+
+      const winnerNames = (msg.winnerIds || []).map((id) => state.players[id]?.name || 'Player');
+      const winnerText = winnerNames.length ? `Winner: ${winnerNames.join(', ')}` : 'Round complete.';
+      const title = msg.matchOver ? 'Match Over' : `Round ${msg.round} Complete`;
+      showRoundPanel(title, winnerText, msg.nextStartAt, msg.matchOver);
+
+      if (msg.matchOver) {
+        const didWin = (msg.winnerIds || []).includes(state.playerId);
+        recordMatchResult(didWin);
+        postFinalScore(score);
+      }
+    }
+
+    function startGame() {
+      resetGame();
+      if (state.playMode === 'multiplayer') {
+        resetRemoteTowers();
+      }
+      state.mode = 'playing';
+      menuPanel.classList.remove('active');
+      lobbyPanel.classList.remove('active');
+      gameOverPanel.classList.remove('active');
+      leaderboardPanel.classList.remove('active');
+      achievementsPanel.classList.remove('active');
+      replayPanel.classList.remove('active');
+      roundPanel.classList.remove('active');
+      spectateBtn.style.display = 'none';
+      spectateHint.style.display = 'none';
+      spectatePill.style.display = 'none';
+      spectateControls.style.display = 'none';
+      replayControls.style.display = 'none';
+      scorePill.style.display = 'inline-flex';
+      perfectPill.style.display = 'inline-flex';
+      hud.classList.remove('hidden');
+      if (state.playMode === 'multiplayer') {
+        roomPill.style.display = 'inline-flex';
+        roomPillCode.textContent = state.roomCode;
+        leaderboard.classList.add('active');
+      } else {
+        roomPill.style.display = 'none';
+        leaderboard.classList.remove('active');
+      }
+      updateChatVisibility();
+      updateHud();
+    }
+
+    function clampSettings(settings) {
+      return {
+        roundDuration: clamp(Number(settings.roundDuration) || state.roomSettings.roundDuration, 30, 180),
+        winTarget: clamp(Number(settings.winTarget) || state.roomSettings.winTarget, 1, 5),
+        maxPlayers: clamp(Number(settings.maxPlayers) || state.roomSettings.maxPlayers, 2, 8)
+      };
+    }
+
+    function applyRoomSettings(settings, syncInputs = true) {
+      const next = clampSettings(settings || {});
+      state.roomSettings = { ...state.roomSettings, ...next };
+      state.roundDuration = state.roomSettings.roundDuration;
+      if (syncInputs) {
+        settingRoundTime.value = state.roomSettings.roundDuration;
+        settingWinTarget.value = state.roomSettings.winTarget;
+        settingMaxPlayers.value = state.roomSettings.maxPlayers;
+      }
+    }
+
+    function readRoomSettingsInputs() {
+      return clampSettings({
+        roundDuration: settingRoundTime.value,
+        winTarget: settingWinTarget.value,
+        maxPlayers: settingMaxPlayers.value
+      });
+    }
+
+    function scheduleRoomSettingsUpdate() {
+      if (!state.isHost || state.playMode !== 'multiplayer') return;
+      if (settingsUpdateTimer) clearTimeout(settingsUpdateTimer);
+      settingsUpdateTimer = setTimeout(() => {
+        const settings = readRoomSettingsInputs();
+        applyRoomSettings(settings);
+        sendToServer({
+          type: 'settings',
+          id: state.playerId,
+          code: state.roomCode,
+          settings
+        });
+      }, 300);
+    }
+
+    function updateButtons() {
+      const hasName = playerNameInput.value.trim().length > 0;
+      createBtn.disabled = !hasName;
+      joinBtn.disabled = !hasName || joinCodeInput.value.trim().length === 0;
+    }
+
+    function normalizeServerUrl(raw) {
+      if (!raw) return '';
+      if (raw.startsWith('http://')) return raw.replace('http://', 'ws://');
+      if (raw.startsWith('https://')) return raw.replace('https://', 'wss://');
+      return raw;
+    }
+
+    function defaultServerUrl() {
+      if (window.location && window.location.host) {
+        const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        return `${scheme}://${window.location.host}`;
+      }
+      return 'ws://localhost:3000';
+    }
+
+    function setServerUrlInput() {
+      const stored = localStorage.getItem('blocktower_server') || '';
+      const fallback = defaultServerUrl();
+      serverUrlInput.value = stored || fallback;
+    }
+
+    function getServerUrl() {
+      const value = normalizeServerUrl(serverUrlInput.value.trim());
+      const url = value || defaultServerUrl();
+      localStorage.setItem('blocktower_server', url);
+      return url;
+    }
+
+    function toHttpUrl(raw) {
+      if (!raw) return '';
+      if (raw.startsWith('wss://')) return `https://${raw.slice(6)}`;
+      if (raw.startsWith('ws://')) return `http://${raw.slice(5)}`;
+      return raw;
+    }
+
+    function localProfileKey(name) {
+      return `blocktower_profile_${name.toLowerCase()}`;
+    }
+
+    function renderProfile(profile) {
+      if (!profile) {
+        profileStats.textContent = 'Profile: --';
+        return;
+      }
+      profileStats.textContent = `Profile: Best ${profile.bestScore} | Wins ${profile.wins} | Matches ${profile.matches}`;
+    }
+
+    function loadProfileLocal(name) {
+      const stored = localStorage.getItem(localProfileKey(name));
+      if (!stored) return null;
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return null;
+      }
+    }
+
+    function saveProfileLocal(profile) {
+      localStorage.setItem(localProfileKey(profile.name), JSON.stringify(profile));
+    }
+
+    async function loadProfile(name) {
+      if (!name) {
+        renderProfile(null);
+        return;
+      }
+      const httpUrl = toHttpUrl(getServerUrl());
+      try {
+        const response = await fetch(`${httpUrl}/api/profile?name=${encodeURIComponent(name)}`);
+        if (!response.ok) throw new Error('profile fetch failed');
+        const data = await response.json();
+        const profile = data.profile || { name, bestScore: 0, wins: 0, matches: 0 };
+        saveProfileLocal(profile);
+        renderProfile(profile);
+        return;
+      } catch {
+        const local = loadProfileLocal(name);
+        renderProfile(local || { name, bestScore: 0, wins: 0, matches: 0 });
+      }
+    }
+
+    async function saveProfile(profile) {
+      if (!profile || !profile.name) return;
+      saveProfileLocal(profile);
+      const httpUrl = toHttpUrl(getServerUrl());
+      try {
+        await fetch(`${httpUrl}/api/profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile)
+        });
+      } catch {
+        // local fallback already saved
+      }
+    }
+
+    function recordSoloScore(latestScore) {
+      const name = playerNameInput.value.trim();
+      if (!name) return;
+      const current = loadProfileLocal(name) || { name, bestScore: 0, wins: 0, matches: 0 };
+      current.bestScore = Math.max(current.bestScore || 0, latestScore || 0);
+      current.matches = (current.matches || 0) + 1;
+      saveProfile(current);
+      renderProfile(current);
+    }
+
+    function recordMatchResult(didWin) {
+      const name = playerNameInput.value.trim();
+      if (!name) return;
+      const current = loadProfileLocal(name) || { name, bestScore: 0, wins: 0, matches: 0 };
+      current.matches = (current.matches || 0) + 1;
+      if (didWin) {
+        current.wins = (current.wins || 0) + 1;
+        unlockAchievement('match_win');
+      }
+      saveProfile(current);
+      renderProfile(current);
+    }
+
+    async function postFinalScore(finalScore) {
+      const name = playerNameInput.value.trim();
+      if (!name) return;
+      const httpUrl = toHttpUrl(getServerUrl());
+      try {
+        await fetch(`${httpUrl}/api/score`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            score: finalScore || 0,
+            mode: state.playMode,
+            roomCode: state.roomCode || null
+          })
+        });
+      } catch {
+        // ignore offline failures
+      }
+    }
+
+    async function fetchLeaderboard() {
+      const httpUrl = toHttpUrl(getServerUrl());
+      globalLeaderEntries.innerHTML = '';
+      const loading = document.createElement('div');
+      loading.className = 'hint';
+      loading.textContent = 'Loading...';
+      globalLeaderEntries.appendChild(loading);
+      try {
+        const response = await fetch(`${httpUrl}/api/leaderboard`);
+        if (!response.ok) throw new Error('leaderboard failed');
+        const data = await response.json();
+        renderGlobalLeaderboard(data.scores || []);
+      } catch {
+        globalLeaderEntries.innerHTML = '';
+        const fallback = document.createElement('div');
+        fallback.className = 'hint';
+        fallback.textContent = 'Could not load leaderboard.';
+        globalLeaderEntries.appendChild(fallback);
+      }
+    }
+
+    async function fetchRoomHistory(code) {
+      const httpUrl = toHttpUrl(getServerUrl());
+      roomHistoryEntries.innerHTML = '';
+      const loading = document.createElement('div');
+      loading.className = 'hint';
+      loading.textContent = 'Loading...';
+      roomHistoryEntries.appendChild(loading);
+      try {
+        const url = code ? `${httpUrl}/api/rooms/history?code=${encodeURIComponent(code)}` : `${httpUrl}/api/rooms/history`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('history failed');
+        const data = await response.json();
+        renderRoomHistory(data.history || []);
+      } catch {
+        roomHistoryEntries.innerHTML = '';
+        const fallback = document.createElement('div');
+        fallback.className = 'hint';
+        fallback.textContent = 'No room history available.';
+        roomHistoryEntries.appendChild(fallback);
+      }
+    }
+
+    function renderGlobalLeaderboard(list) {
+      globalLeaderEntries.innerHTML = '';
+      if (!list.length) {
+        const empty = document.createElement('div');
+        empty.className = 'hint';
+        empty.textContent = 'No scores yet.';
+        globalLeaderEntries.appendChild(empty);
+        return;
+      }
+      list.slice(0, 10).forEach((entry, index) => {
+        const row = document.createElement('div');
+        row.className = 'leader-item';
+        const name = document.createElement('span');
+        name.textContent = `${index + 1}. ${entry.name}`;
+        const scoreEl = document.createElement('span');
+        scoreEl.textContent = `${entry.score}`;
+        row.appendChild(name);
+        row.appendChild(scoreEl);
+        globalLeaderEntries.appendChild(row);
+      });
+    }
+
+    function renderRoomHistory(list) {
+      roomHistoryEntries.innerHTML = '';
+      if (!list.length) {
+        const empty = document.createElement('div');
+        empty.className = 'hint';
+        empty.textContent = 'No room rounds yet.';
+        roomHistoryEntries.appendChild(empty);
+        return;
+      }
+      list.slice(0, 8).forEach((entry) => {
+        const row = document.createElement('div');
+        row.className = 'leader-item';
+        const left = document.createElement('span');
+        const date = new Date(entry.time || Date.now());
+        const label = entry.matchOver ? 'Match' : `Round ${entry.round || ''}`.trim();
+        const codeLabel = entry.code ? ` (${entry.code})` : '';
+        left.textContent = `${label}${codeLabel} - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        const right = document.createElement('span');
+        right.textContent = entry.winner || 'No winner';
+        row.appendChild(left);
+        row.appendChild(right);
+        roomHistoryEntries.appendChild(row);
+      });
+    }
+
+    playerNameInput.addEventListener('input', () => {
+      updateButtons();
+      if (profileLoadTimer) clearTimeout(profileLoadTimer);
+      profileLoadTimer = setTimeout(() => {
+        loadProfile(playerNameInput.value.trim());
+      }, 400);
+    });
+    joinCodeInput.addEventListener('input', updateButtons);
+    serverUrlInput.addEventListener('change', getServerUrl);
+    [settingRoundTime, settingWinTarget, settingMaxPlayers].forEach((input) => {
+      input.addEventListener('input', scheduleRoomSettingsUpdate);
+      input.addEventListener('change', scheduleRoomSettingsUpdate);
+    });
+    updateButtons();
+    setServerUrlInput();
+    applyRoomSettings(state.roomSettings);
+    document.querySelectorAll('button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        initAudio();
+        soundUi();
+      });
+    });
+
+    if (chatSend) {
+      chatSend.addEventListener('click', () => {
+        sendChat();
+      });
+    }
+
+    if (chatInput) {
+      chatInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.stopPropagation();
+          sendChat();
+        }
+      });
+    }
+
+    soloBtn.addEventListener('click', () => {
+      initAudio();
+      state.playMode = 'solo';
+      state.playerName = playerNameInput.value.trim() || 'Solo';
+      startGame();
+    });
+
+    createBtn.addEventListener('click', () => {
+      initAudio();
+      const name = playerNameInput.value.trim();
+      if (!name) return;
+      state.playerName = name;
+      createServer();
+    });
+
+    joinBtn.addEventListener('click', () => {
+      initAudio();
+      const name = playerNameInput.value.trim();
+      const code = joinCodeInput.value.trim().toUpperCase();
+      if (!name || !code) return;
+      state.playerName = name;
+      joinServer(code);
+    });
+
+    startBtn.addEventListener('click', () => {
+      if (!state.isHost) return;
+      resetMatchState();
+      const startPayload = {
+        type: 'roundStart',
+        id: state.playerId,
+        code: state.roomCode,
+        round: 1,
+        duration: state.roomSettings.roundDuration,
+        startAt: Date.now() + 1000,
+        resetWins: true
+      };
+      sendToServer(startPayload);
+      handleRoundStart(startPayload);
+    });
+
+    leaveBtn.addEventListener('click', () => {
+      leaveRoom();
+      showMenu();
+    });
+
+    retryBtn.addEventListener('click', () => {
+      if (state.playMode === 'multiplayer') {
+        showLobby();
+      } else {
+        startGame();
+      }
+    });
+
+    spectateBtn.addEventListener('click', () => {
+      enterSpectate();
+    });
+
+    replayBtn.addEventListener('click', () => {
+      if (replayData) startReplay(replayData);
+    });
+
+    copyReplayBtn.addEventListener('click', async () => {
+      if (!replayData) return;
+      const encoded = encodeReplay(replayData);
+      if (!encoded) return;
+      const url = `${window.location.origin}${window.location.pathname}#replay=${encoded}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('Replay link copied!');
+      } catch {
+        showToast('Could not copy replay link.');
+      }
+    });
+
+    leaderboardBtn.addEventListener('click', () => {
+      showLeaderboardPanel();
+    });
+
+    achievementsBtn.addEventListener('click', () => {
+      showAchievementsPanel();
+    });
+
+    watchSharedReplayBtn.addEventListener('click', () => {
+      if (sharedReplayData) {
+        openReplayPanel(sharedReplayData, 'Shared replay ready to watch.');
+      }
+    });
+
+    leaderboardBackBtn.addEventListener('click', () => {
+      showMenu();
+    });
+
+    achievementsBackBtn.addEventListener('click', () => {
+      showMenu();
+    });
+
+    replayPlayBtn.addEventListener('click', () => {
+      if (sharedReplayData) {
+        startReplay(sharedReplayData);
+      } else if (replayData) {
+        startReplay(replayData);
+      }
+    });
+
+    replayCloseBtn.addEventListener('click', () => {
+      showMenu();
+    });
+
+    prevSpectateBtn.addEventListener('click', () => {
+      cycleSpectate(-1);
+    });
+
+    nextSpectateBtn.addEventListener('click', () => {
+      cycleSpectate(1);
+    });
+
+    exitSpectateBtn.addEventListener('click', () => {
+      leaveRoom();
+      showMenu();
+    });
+
+    replayPauseBtn.addEventListener('click', () => {
+      if (replayPaused && replayState && replayState.index >= replayState.events.length) {
+        if (sharedReplayData) {
+          startReplay(sharedReplayData);
+        } else if (replayData) {
+          startReplay(replayData);
+        }
+        return;
+      }
+      replayPaused = !replayPaused;
+      replayPauseBtn.textContent = replayPaused ? 'Play' : 'Pause';
+    });
+
+    replayExitBtn.addEventListener('click', () => {
+      showMenu();
+    });
+
+    roundLobbyBtn.addEventListener('click', () => {
+      showLobby();
+    });
+
+    backBtn.addEventListener('click', () => {
+      if (state.playMode === 'multiplayer') {
+        leaveRoom();
+      }
+      showMenu();
+    });
+
+    window.addEventListener('keydown', (event) => {
+      const active = document.activeElement;
+      const isTyping = active
+        && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      if (isTyping) return;
+      if (event.code === 'Space' || event.code === 'Enter') {
+        initAudio();
+        placeBlock();
+      }
+    });
+
+    window.addEventListener('pointerdown', (event) => {
+      if (event.target && event.target.closest && event.target.closest('#chatPanel')) return;
+      if (state.mode === 'playing') {
+        initAudio();
+        placeBlock();
+      }
+    });
+    function connectSocket(url) {
+      return new Promise((resolve, reject) => {
+        try {
+          if (state.socket) {
+            state.disconnecting = true;
+            state.socket.close();
+          }
+          state.socketUrl = url;
+          const socket = new WebSocket(url);
+          state.socket = socket;
+          state.disconnecting = false;
+          state.connected = false;
+          let settled = false;
+
+          const timeout = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            socket.close();
+            reject(new Error('timeout'));
+          }, 3500);
+
+          socket.addEventListener('open', () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            state.connected = true;
+            resolve();
+          });
+
+          socket.addEventListener('error', () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            reject(new Error('socket error'));
+          });
+
+          socket.addEventListener('message', handleSocketMessage);
+
+          socket.addEventListener('close', () => {
+            state.connected = false;
+            if (state.disconnecting) return;
+            if (state.playMode === 'multiplayer') {
+              leaveRoom();
+              showMenu();
+              menuError.textContent = 'Connection lost. Back to menu.';
+            }
+          });
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    function sendToServer(payload) {
+      if (!state.socket || state.socket.readyState !== WebSocket.OPEN) return false;
+      state.socket.send(JSON.stringify(payload));
+      return true;
+    }
+
+    function createServer() {
+      const url = getServerUrl();
+      menuError.textContent = 'Connecting to server...';
+      connectSocket(url)
+        .then(() => {
+          state.playMode = 'multiplayer';
+          state.isHost = true;
+          state.roomCode = null;
+          state.players = {};
+          resetMatchState();
+          showLobby();
+          const settings = readRoomSettingsInputs();
+          applyRoomSettings(settings);
+          sendToServer({ type: 'create', id: state.playerId, name: state.playerName, settings });
+        })
+        .catch(() => {
+          menuError.textContent = 'Could not connect to server. Check the URL and try again.';
+        });
+    }
+
+    function joinServer(code) {
+      const url = getServerUrl();
+      menuError.textContent = 'Connecting to server...';
+      connectSocket(url)
+        .then(() => {
+          state.playMode = 'multiplayer';
+          state.isHost = false;
+          state.roomCode = code;
+          state.players = {};
+          resetMatchState();
+          showLobby();
+          sendToServer({ type: 'join', id: state.playerId, name: state.playerName, code });
+
+          if (state.joinTimeout) clearTimeout(state.joinTimeout);
+          state.joinTimeout = setTimeout(() => {
+            if (!state.players[state.playerId]) {
+              leaveRoom();
+              showMenu();
+              menuError.textContent = 'Room not found or not responding.';
+            }
+          }, 3500);
+        })
+        .catch(() => {
+          menuError.textContent = 'Could not connect to server. Check the URL and try again.';
+        });
+    }
+
+    function leaveRoom() {
+      if (state.playMode === 'multiplayer') {
+        sendToServer({ type: 'leave', id: state.playerId, code: state.roomCode });
+      }
+      if (state.socket) {
+        state.disconnecting = true;
+        state.socket.close();
+      }
+      state.socket = null;
+      state.playMode = 'solo';
+      state.roomCode = null;
+      state.isHost = false;
+      state.hostId = null;
+      state.players = {};
+      resetMatchState();
+      hideRoundPanel();
+      Object.keys(remoteTowers).forEach((id) => delete remoteTowers[id]);
+      leaderboard.classList.remove('active');
+      roomPill.style.display = 'none';
+      clearChat();
+      updateChatVisibility();
+    }
+
+    function syncRemoteTowers(players) {
+      const keep = new Set();
+      players.forEach((player) => {
+        if (player.id === state.playerId) return;
+        keep.add(player.id);
+        if (!remoteTowers[player.id]) {
+          remoteTowers[player.id] = {
+            id: player.id,
+            name: player.name,
+            blocks: [createBaseBlock()],
+            score: player.score || 0,
+            lastPlaceAt: 0,
+            lastPerfectAt: 0
+          };
+        } else {
+          remoteTowers[player.id].name = player.name;
+          remoteTowers[player.id].score = player.score || remoteTowers[player.id].score;
+        }
+      });
+
+      Object.keys(remoteTowers).forEach((id) => {
+        if (!keep.has(id)) delete remoteTowers[id];
+      });
+
+      updateSpectateLabel();
+    }
+
+    function resetRemoteTowers() {
+      Object.keys(remoteTowers).forEach((id) => {
+        remoteTowers[id].blocks = [createBaseBlock()];
+        remoteTowers[id].score = 0;
+        remoteTowers[id].lastPlaceAt = 0;
+        remoteTowers[id].lastPerfectAt = 0;
+      });
+    }
+
+    function registerRemotePlacement(msg) {
+      if (!msg || !msg.id || !msg.block) return;
+      if (msg.id === state.playerId) return;
+      if (!remoteTowers[msg.id]) {
+        remoteTowers[msg.id] = {
+          id: msg.id,
+          name: msg.name || 'Player',
+          blocks: [createBaseBlock()],
+          score: 0,
+          lastPlaceAt: 0,
+          lastPerfectAt: 0
+        };
+      }
+      remoteTowers[msg.id].blocks.push(msg.block);
+      if (typeof msg.score === 'number') {
+        remoteTowers[msg.id].score = msg.score;
+      }
+      const now = performance.now();
+      remoteTowers[msg.id].lastPlaceAt = now;
+      if (msg.perfect) {
+        remoteTowers[msg.id].lastPerfectAt = now;
+      }
+      updateSpectateLabel();
+    }
+    function applyRoomState(msg) {
+      state.roomCode = msg.code || state.roomCode;
+      state.hostId = msg.hostId || null;
+      if (msg.settings) {
+        state.roomSettings = { ...state.roomSettings, ...msg.settings };
+        state.roundDuration = state.roomSettings.roundDuration;
+      }
+      state.players = {};
+      for (const player of msg.players || []) {
+        state.players[player.id] = player;
+      }
+      state.isHost = state.hostId === state.playerId;
+      syncRemoteTowers(msg.players || []);
+      updateLobby();
+    }
+
+    function handleSocketMessage(event) {
+      let msg = null;
+      try {
+        msg = JSON.parse(event.data || '{}');
+      } catch {
+        return;
+      }
+      if (!msg || !msg.type) return;
+
+      if (msg.type === 'created' || msg.type === 'joined' || msg.type === 'state') {
+        applyRoomState(msg);
+        return;
+      }
+
+      if (msg.type === 'roundStart') {
+        handleRoundStart(msg);
+        return;
+      }
+
+      if (msg.type === 'roundEnd') {
+        handleRoundEnd(msg);
+        return;
+      }
+
+      if (msg.type === 'settings') {
+        if (msg.settings) {
+          state.roomSettings = { ...state.roomSettings, ...msg.settings };
+          applyRoomSettings(state.roomSettings);
+        }
+        return;
+      }
+
+      if (msg.type === 'roundLose') {
+        if (!state.isHost || !state.roundActive) return;
+        state.roundLosses[msg.id] = true;
+        const totalPlayers = Object.keys(state.players).length;
+        const lostPlayers = Object.keys(state.roundLosses).length;
+        if (lostPlayers >= totalPlayers && !state.roundFinished) {
+          finishRound();
+        }
+        return;
+      }
+
+      if (msg.type === 'score') {
+        if (!state.players[msg.id]) return;
+        state.players[msg.id].score = msg.score;
+        updateLeaderboard();
+        return;
+      }
+
+      if (msg.type === 'place') {
+        registerRemotePlacement(msg);
+        return;
+      }
+
+      if (msg.type === 'chat') {
+        addChatMessage(msg);
+        return;
+      }
+
+      if (msg.type === 'start') {
+        handleRoundStart({
+          round: state.roundNumber,
+          duration: state.roundDuration,
+          startAt: Date.now() + 500
+        });
+        return;
+      }
+
+      if (msg.type === 'error') {
+        leaveRoom();
+        showMenu();
+        menuError.textContent = msg.message || 'Server error.';
+      }
+    }
+
+    function broadcastScore() {
+      if (state.playMode !== 'multiplayer') return;
+      if (state.players[state.playerId]) {
+        state.players[state.playerId].score = score;
+      }
+      updateLeaderboard();
+      sendToServer({ type: 'score', id: state.playerId, code: state.roomCode, score });
+    }
+
+    function broadcastPlacement(block, wasPerfect) {
+      if (state.playMode !== 'multiplayer') return;
+      if (!block) return;
+      sendToServer({
+        type: 'place',
+        id: state.playerId,
+        code: state.roomCode,
+        name: state.playerName,
+        score,
+        perfect: !!wasPerfect,
+        block: {
+          x: block.x,
+          y: block.y,
+          z: block.z,
+          w: block.w,
+          d: block.d,
+          h: block.h,
+          color: block.color
+        }
+      });
+    }
+    function updateLobby() {
+      playerListEl.innerHTML = '';
+      const list = Object.values(state.players);
+      for (const player of list) {
+        const item = document.createElement('span');
+        const name = document.createElement('span');
+        name.textContent = player.name;
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = player.id === state.hostId ? 'Host' : 'Player';
+        item.appendChild(name);
+        item.appendChild(tag);
+        playerListEl.appendChild(item);
+
+        if (state.roundWins[player.id] === undefined) {
+          state.roundWins[player.id] = 0;
+        }
+      }
+
+      roomCodeEl.textContent = state.roomCode || '----';
+      roomPillCode.textContent = state.roomCode || '';
+
+      startBtn.disabled = !state.isHost;
+      settingRoundTime.disabled = !state.isHost;
+      settingWinTarget.disabled = !state.isHost;
+      settingMaxPlayers.disabled = !state.isHost;
+      settingsHint.textContent = state.isHost ? 'Host can change settings. Changes sync to everyone.' : 'Only the host can edit settings.';
+      applyRoomSettings(state.roomSettings);
+      updateLeaderboard();
+    }
+
+    function updateLeaderboard() {
+      if (state.playMode !== 'multiplayer') return;
+      leaderEntries.innerHTML = '';
+      const list = Object.values(state.players);
+      list.sort((a, b) => (b.score || 0) - (a.score || 0));
+      for (const player of list) {
+        const row = document.createElement('div');
+        row.className = 'entry';
+        const left = document.createElement('span');
+        left.textContent = player.name;
+        const right = document.createElement('span');
+        const wins = state.roundWins[player.id] || 0;
+        right.textContent = `W${wins} | ${player.score || 0}`;
+        row.appendChild(left);
+        row.appendChild(right);
+        leaderEntries.appendChild(row);
+      }
+    }
+
+    loadProfile(playerNameInput.value.trim());
+    function loadSkins() {
+      const stored = localStorage.getItem(unlockKey);
+      if (stored) {
+        try {
+          unlockedSkins = new Set(JSON.parse(stored));
+        } catch {
+          unlockedSkins = new Set(['classic']);
+        }
+      } else {
+        unlockedSkins = new Set(['classic']);
+      }
+
+      if (!unlockedSkins.has('classic')) unlockedSkins.add('classic');
+
+      const chosen = localStorage.getItem(skinKey) || 'classic';
+      selectedSkinId = unlockedSkins.has(chosen) ? chosen : 'classic';
+      applySkinById(selectedSkinId);
+    }
+
+    function saveSkins() {
+      localStorage.setItem(unlockKey, JSON.stringify(Array.from(unlockedSkins)));
+      localStorage.setItem(skinKey, selectedSkinId);
+    }
+
+    function applySkinById(id) {
+      const skin = skins.find(item => item.id === id) || skins[0];
+      activeSkin = skin;
+      palette = skin.palette;
+      selectedSkinId = skin.id;
+      saveSkins();
+      renderSkins();
+    }
+
+    function renderSkins() {
+      skinGrid.innerHTML = '';
+      for (const skin of skins) {
+        const unlocked = unlockedSkins.has(skin.id);
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'skin-card';
+        if (!unlocked) card.classList.add('locked');
+        if (skin.id === selectedSkinId) card.classList.add('active');
+        card.style.setProperty('--skin-1', skin.sky[0]);
+        card.style.setProperty('--skin-2', skin.sky[2]);
+
+        const name = document.createElement('div');
+        name.className = 'skin-name';
+        name.textContent = skin.name;
+        const req = document.createElement('div');
+        req.className = 'skin-req';
+        if (skin.required === 'daily') {
+          req.textContent = unlocked ? 'Unlocked' : 'Daily Challenge';
+        } else {
+          req.textContent = skin.required === 0 ? 'Unlocked' : `Score ${skin.required}+`;
+        }
+
+        card.appendChild(name);
+        card.appendChild(req);
+        card.addEventListener('click', () => {
+          if (!unlocked) {
+            if (skin.required === 'daily') {
+              menuError.textContent = `Complete today's daily challenge to unlock ${skin.name}.`;
+            } else {
+              menuError.textContent = `Reach score ${skin.required} to unlock ${skin.name}.`;
+            }
+            return;
+          }
+          menuError.textContent = '';
+          applySkinById(skin.id);
+        });
+        skinGrid.appendChild(card);
+      }
+      skinHint.textContent = 'Unlock more skins by reaching higher scores.';
+    }
+
+    function unlockSkins(latestScore) {
+      const newly = [];
+      for (const skin of skins) {
+        if (skin.required === 'daily') continue;
+        if (skin.required > 0 && latestScore >= skin.required && !unlockedSkins.has(skin.id)) {
+          unlockedSkins.add(skin.id);
+          newly.push(skin.name);
+        }
+      }
+      if (newly.length) {
+        saveSkins();
+        renderSkins();
+      }
+      return newly;
+    }
+
+    function initReplayFromHash() {
+      if (!window.location.hash) return;
+      const match = window.location.hash.match(/replay=([^&]+)/);
+      if (!match) return;
+      const data = decodeReplay(match[1]);
+      if (data && data.events && data.events.length) {
+        sharedReplayData = data;
+        watchSharedReplayBtn.style.display = 'inline-flex';
+      }
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (state.playMode === 'multiplayer') {
+        sendToServer({ type: 'leave', id: state.playerId, code: state.roomCode });
+      }
+    });
+
+    loadDailyState();
+    loadAchievements();
+    if (state.daily.completed) {
+      unlockedAchievements.add('daily_complete');
+      saveAchievements();
+      renderAchievementSummary();
+      renderAchievementPanel();
+    }
+    loadSkins();
+    applyDailyUnlock();
+    replayData = loadReplayLocal();
+    initReplayFromHash();
+    showMenu();
+  </script>
+</body>
+</html>
